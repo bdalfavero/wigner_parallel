@@ -1,6 +1,7 @@
-cc=mpicxx
+cc=h5c++
 cflags=-g
 include_flags=-I/Users/benjamindalfavero/include/eigen-3.4.0/
+link_flags=-lhdf5
 
 sources=$(wildcard src/*.cpp)
 objects=$(patsubst %.cpp,%.o,$(sources))

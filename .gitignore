@@ -3,3 +3,4 @@ wigner
 *.csv
 *.dat
 *.png
+*.o

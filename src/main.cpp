@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <Eigen/Dense>
+#include "hdf5.h"
 #include "../include/wigner.hpp"
 #include "../include/bose_sys.hpp"
 
@@ -29,22 +30,47 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    std::ifstream input_file(argv[1]);
+    hid_t file, dset;
 
     int num_sites, num_samples, num_steps;
     double init_population, dt, t;
     Eigen::MatrixXcd new_field, old_field;
     Eigen::VectorXd population;
 
-    input_file >> num_sites;
-    input_file >> num_samples;
-    input_file >> init_population;
+    if ((file = H5Fopen(argv[1], H5F_ACC_RDWR, H5P_DEFAULT)) == H5I_INVALID_HID) {
+        std::cerr << "Error opening file.\n";
+        exit(-1);
+    }
+
+    //input_file >> num_sites;
+    if (H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_sites) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+    //input_file >> num_samples;
+    if (H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_samples) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+    //input_file >> init_population;
+    if (H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &init_population) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
 
     bose_system_t bose;
     bose.n_sites = num_sites;
-    input_file >> bose.g;
-    input_file >> bose.t;
-    
+    //input_file >> bose.g;
+    if (H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &bose.g) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+    //input_file >> bose.t;
+    if (H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &bose.t) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+
     population = Eigen::VectorXd::Zero(num_sites);
     population(num_sites / 2) = init_population;
 
@@ -54,8 +80,17 @@ int main(int argc, char *argv[]) {
     population = avg_pop(old_field);
 
     print_csv_header(num_sites);
-    num_steps = 200;
-    input_file >> dt;
+    //num_steps = 200;
+    if (H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_steps) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+    //input_file >> dt;
+    if (H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &bose.t) < 0) {
+        std::cerr << "Error opening dataset.\n";
+        exit(-1);
+    }
+    
     t = 0.;
     for (int i = 0; i < num_steps; i++) {
         print_csv_row(t, population);
