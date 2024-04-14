@@ -69,6 +69,8 @@ Eigen::VectorXd avg_pop(Eigen::MatrixXcd field, int rank, int world_size, bool p
         }
         return population;
     } else {
+        //std::cerr << "In averaging function." << std::endl;
+        //std::cerr << rank << " " << field.rows() << " " << field.cols() << std::endl;
         Eigen::VectorXd this_population, total_population;
         int nsites, this_nsamples, total_nsamples;
 
