@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <mpi.h>
 #include "hdf5.h"
+#include "../include/get_walltime.h"
 #include "../include/wigner.hpp"
 #include "../include/bose_sys.hpp"
 
@@ -12,17 +13,18 @@ void print_csv_header(int nsites) {
     std::cout << "t,";
     for (int i = 0; i < nsites; i++) {
         std::cout << "p" << i;
-        if (i != nsites - 1) std::cout << ",";
+        std::cout << ",";
     }
-    std::cout << "\n";
+    std::cout << "walltime" << "\n";
 }
 
-void print_csv_row(double t, Eigen::VectorXd population) {
+void print_csv_row(double t, Eigen::VectorXd population, double walltime) {
     std::cout << t << ",";
     for (int i = 0; i < population.size(); i++) {
         std::cout << population(i);
-        if (i != population.size() - 1) std::cout << ",";
+        std::cout << ",";
     }
+    std::cout << walltime;
     std::cout << std::endl;
 }
 
@@ -36,7 +38,7 @@ int main(int argc, char *argv[]) {
     hid_t file, dset;
     char dset_name[BUFFSIZE];
     int num_sites, num_samples, num_steps;
-    double init_population, dt, t;
+    double init_population, dt, t, end_time, start_time;
     Eigen::MatrixXcd new_field, old_field;
     Eigen::VectorXd population, times;
     Eigen::MatrixXd all_populations;
@@ -134,11 +136,13 @@ int main(int argc, char *argv[]) {
 
     t = 0.;
     for (int i = 0; i < num_steps; i++) {
-        print_csv_row(t, population);
+        get_walltime(&start_time);
         step_forward(old_field, new_field, bose, dt);
         old_field = new_field;
         population = avg_pop(old_field);
         t += dt;
+        get_walltime(&end_time);
+        print_csv_row(t, population, end_time - start_time);
     }
     
     return 0;
