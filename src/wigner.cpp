@@ -2,6 +2,7 @@
 #include <random>
 #include <cmath>
 #include <complex>
+#include <mpi.h>
 #include <Eigen/Dense>
 #include "../include/wigner.hpp"
 
@@ -54,16 +55,41 @@ void step_forward(Eigen::MatrixXcd old_field, Eigen::MatrixXcd &new_field, bose_
     return;
 }
 
-Eigen::VectorXd avg_pop(Eigen::MatrixXcd field) {
-    Eigen::VectorXd population;
-    int nsites, nsamples;
+Eigen::VectorXd avg_pop(Eigen::MatrixXcd field, int rank, int world_size, bool parallel) {
+    if (!parallel) {
+        Eigen::VectorXd population;
+        int nsites, nsamples;
 
-    nsites = field.rows();
-    nsamples = field.cols();
-    population = Eigen::VectorXd::Zero(nsites);
+        nsites = field.rows();
+        nsamples = field.cols();
+        population = Eigen::VectorXd::Zero(nsites);
 
-    for (int i = 0; i < nsites; i++) {
-        population(i) = field.row(i).squaredNorm() / (double)nsamples;
+        for (int i = 0; i < nsites; i++) {
+            population(i) = field.row(i).squaredNorm() / (double)nsamples;
+        }
+        return population;
+    } else {
+        Eigen::VectorXd this_population, total_population;
+        int nsites, this_nsamples, total_nsamples;
+
+        nsites = field.rows();
+        this_nsamples = field.cols();
+        total_nsamples = 0;
+        this_population = Eigen::VectorXd::Zero(nsites);
+        total_population = Eigen::VectorXd::Zero(nsites);
+
+        /* Add together all samples FOR THIS NODE */
+        for (int i = 0; i < nsites; i++) {
+            this_population(i) = field.row(i).squaredNorm();
+        }
+
+        /* Get total number of samples for all nodes. */
+        MPI_Allreduce(&this_nsamples, &total_nsamples, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        /* Add together all populations from each nodes. */
+        MPI_Allreduce(this_population.data(), total_population.data(), nsites, 
+            MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        total_population = total_population / (double)total_nsamples;
+
+        return total_population;
     }
-    return population;
 }

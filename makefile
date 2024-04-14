@@ -1,6 +1,6 @@
-cc=h5c++
+cc=mpicxx
 cflags=-g
-include_flags=-I/Users/benjamindalfavero/include/eigen-3.4.0/
+include_flags=-I/usr/local/Cellar/hdf5/ -I/Users/benjamindalfavero/include/eigen-3.4.0/
 link_flags=-lhdf5
 
 sources=$(wildcard src/*.cpp)
@@ -9,7 +9,7 @@ objects=$(patsubst %.cpp,%.o,$(sources))
 all: wigner
 
 wigner: $(objects)
-	$(cc) $^ -o $@
+	$(cc) $(link_flags) $^ -o $@
 
 src/%.o: src/%.cpp
 	$(cc) $(cflags) -c $< -o $@ $(include_flags)

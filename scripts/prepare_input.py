@@ -26,3 +26,6 @@ g_dset = bose_group.create_dataset("g", (1,), dtype="double")
 g_dset[0] = 1.0
 t_dset = bose_group.create_dataset("t", (1,), dtype="double")
 t_dset[0] = 50.0
+
+init_pop_dset = f.create_dataset("init_population", (1,), dtype="double")
+init_pop_dset[0] = 5.0
