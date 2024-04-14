@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <Eigen/Dense>
+#include <mpi.h>
 #include "hdf5.h"
 #include "../include/wigner.hpp"
 #include "../include/bose_sys.hpp"

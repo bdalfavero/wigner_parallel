@@ -13,3 +13,6 @@ wigner: $(objects)
 
 src/%.o: src/%.cpp
 	$(cc) $(cflags) -c $< -o $@ $(include_flags)
+
+clean:
+	rm wigner src/*.o *.png *.csv *.h5

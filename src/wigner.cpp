@@ -40,16 +40,17 @@ void step_forward(Eigen::MatrixXcd old_field, Eigen::MatrixXcd &new_field, bose_
     nsites = old_field.rows();
     nsamples = old_field.cols();
 
-    for (int j = 0; j < nsamples; j++) {
-        for (int i = 0; i < nsites; i++) {
-            //rhs = std::complex<double>(0., 0.);
-            rhs = std::complex<double>(-bose.g, 0.) * (old_field(i,j) + std::complex<double>(pow(abs(old_field(i, j)), 2)), 0.) * old_field(i, j);
-            if (i != 0) rhs += std::complex<double>(bose.t, 0.) * old_field(i - 1, j);
-            if (i != nsites - 1) rhs += std::complex<double>(bose.t, 0.) * old_field(i + 1, j);
-            new_field(i, j) = old_field(i, j) + std::complex<double>(0., -dt) * rhs; 
+    #pragma omp parallel{
+        #pragma omp for
+        for (int j = 0; j < nsamples; j++) {
+            for (int i = 0; i < nsites; i++) {
+                //rhs = std::complex<double>(0., 0.);
+                rhs = std::complex<double>(-bose.g, 0.) * (old_field(i,j) + std::complex<double>(pow(abs(old_field(i, j)), 2)), 0.) * old_field(i, j);
+                if (i != 0) rhs += std::complex<double>(bose.t, 0.) * old_field(i - 1, j);
+                if (i != nsites - 1) rhs += std::complex<double>(bose.t, 0.) * old_field(i + 1, j);
+                new_field(i, j) = old_field(i, j) + std::complex<double>(0., -dt) * rhs; 
+            }
         }
-    }
-
     return;
 }
 
