@@ -15,9 +15,10 @@ df = pd.read_csv(args.input)
 population = df.loc[:, df.columns != "t"].values
 
 fig, ax = plt.subplots()
-ax.imshow(population, aspect="auto")
+mapable = ax.imshow(population, aspect="auto")
 #fig.set_figheight(3.0)
 #fig.set_figwidth(3.0)
+fig.colorbar(mapable, ax=ax)
 if args.show:
     plt.show()
 plt.savefig(args.output)
