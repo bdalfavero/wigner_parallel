@@ -4,3 +4,4 @@ wigner
 *.dat
 *.png
 *.o
+.DS_Store
