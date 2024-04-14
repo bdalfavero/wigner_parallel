@@ -10,10 +10,10 @@ args = parser.parse_args()
 f = h5py.File(args.output, 'w')
 
 num_points_dset = f.create_dataset("num_points", (1,), dtype='i')
-num_points_dset[0] = 5
+num_points_dset[0] = 50
 
 num_samples_dset = f.create_dataset("num_samples", (1,), dtype='i')
-num_samples_dset[0] = 500
+num_samples_dset[0] = 5000
 
 time_step_group = f.create_group("time_steps")
 time_step_dset = time_step_group.create_dataset("dt", (1,), dtype='double')
