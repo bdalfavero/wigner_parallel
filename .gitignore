@@ -1,6 +1,7 @@
 wigner
 *.h5
 *.csv
+!data/*.csv
 *.dat
 *.png
 *.o
