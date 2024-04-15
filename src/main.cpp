@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     Eigen::VectorXd population, times;
     Eigen::MatrixXd all_populations;
 
+	num_samples = 0;
     std::ifstream input_file(argv[1]);
     if (rank == 0) {
         input_file >> num_sites;
@@ -92,9 +93,12 @@ int main(int argc, char *argv[]) {
      * In the case where the number is not evenly divisible,
      * Divide the remainder amongst some of the nodes to compensate.
      */
+	//std::cerr << "num_samples = " << num_samples << std::endl;
     int num_samples_this_rank = num_samples / world_size;
     int remainder = num_samples - world_size * (num_samples / world_size);
-    if (rank < remainder) num_samples++;
+	//if (rank == 0) std::cerr << remainder << std::endl;
+    if (rank < remainder) num_samples_this_rank++;
+	//std::cerr << rank << " " << num_samples_this_rank << std::endl;
     int num_samples_all_ranks;
     MPI_Allreduce(&num_samples_this_rank, &num_samples_all_ranks, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if (num_samples_all_ranks != num_samples) {

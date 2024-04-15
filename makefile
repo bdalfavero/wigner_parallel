@@ -1,6 +1,6 @@
 cc=mpicxx
 cflags=-g
-include_flags=-I/usr/local/Cellar/hdf5/ -I/Users/benjamindalfavero/include/eigen-3.4.0/
+include_flags=-I/mnt/home/dalfaver/eigen-3.4.0/
 link_flags=-lhdf5
 
 sources=$(wildcard src/*.cpp)
