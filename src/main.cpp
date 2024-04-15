@@ -70,14 +70,6 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&bose.g, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&bose.t, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    population = Eigen::VectorXd::Zero(num_sites);
-    population(num_sites / 2) = init_population;
-
-    old_field = set_initial_condition(num_sites, num_samples, population);
-    new_field = Eigen::MatrixXcd::Zero(num_sites, num_samples);
-
-    population = avg_pop(old_field);
-
     //print_csv_header(num_sites);
     //num_steps = 200;
     if (rank == 0) {
@@ -106,6 +98,15 @@ int main(int argc, char *argv[]) {
             << " does not match total " << num_samples << ".\n";
         exit(-1);
     }
+
+    population = Eigen::VectorXd::Zero(num_sites);
+    population(num_sites / 2) = init_population;
+
+    old_field = set_initial_condition(num_sites, num_samples_this_rank, population);
+    new_field = Eigen::MatrixXcd::Zero(num_sites, num_samples_this_rank);
+
+    population = avg_pop(old_field);
+
 
     t = 0.;
     for (int i = 0; i < num_steps; i++) {
