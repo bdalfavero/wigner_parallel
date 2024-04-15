@@ -88,6 +88,21 @@ int main(int argc, char *argv[]) {
 
     if (rank == 0) print_csv_header(num_sites);
 
+    /* split the samples between all the rank. 
+     * In the case where the number is not evenly divisible,
+     * Divide the remainder amongst some of the nodes to compensate.
+     */
+    int num_samples_this_rank = num_samples / world_size;
+    int remainder = num_samples - world_size * (num_samples / world_size);
+    if (rank < remainder) num_samples++;
+    int num_samples_all_ranks;
+    MPI_Allreduce(&num_samples_this_rank, &num_samples_all_ranks, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if (num_samples_all_ranks != num_samples) {
+        if (rank == 0) std::cerr << "Load balanced total " << num_samples_all_ranks 
+            << " does not match total " << num_samples << ".\n";
+        exit(-1);
+    }
+
     t = 0.;
     for (int i = 0; i < num_steps; i++) {
         get_walltime(&start_time);
