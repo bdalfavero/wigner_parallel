@@ -6,3 +6,4 @@ wigner
 *.png
 *.o
 .DS_Store
+.ipynb_checkpoints
