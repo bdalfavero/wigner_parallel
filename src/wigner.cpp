@@ -4,6 +4,7 @@
 #include <complex>
 #include <mpi.h>
 #include <Eigen/Dense>
+#include <omp.h>
 #include "../include/wigner.hpp"
 
 Eigen::MatrixXcd set_initial_condition(int num_sites, int num_samples, Eigen::VectorXd init_pop) {
@@ -41,7 +42,8 @@ void step_forward(Eigen::MatrixXcd old_field, Eigen::MatrixXcd &new_field, bose_
     nsites = old_field.rows();
     nsamples = old_field.cols();
 
-    #pragma omp parallel{
+    #pragma omp parallel 
+	{
         #pragma omp for
         for (int j = 0; j < nsamples; j++) {
             for (int i = 0; i < nsites; i++) {
@@ -52,6 +54,7 @@ void step_forward(Eigen::MatrixXcd old_field, Eigen::MatrixXcd &new_field, bose_
                 new_field(i, j) = old_field(i, j) + std::complex<double>(0., -dt) * rhs; 
             }
         }
+	}
     return;
 }
 

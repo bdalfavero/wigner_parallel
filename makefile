@@ -9,10 +9,10 @@ objects=$(patsubst %.cpp,%.o,$(sources))
 all: wigner
 
 wigner: $(objects)
-	$(cc) $(link_flags) $^ -o $@
+	$(cc) -fopenmp $(link_flags) $^ -o $@
 
 src/%.o: src/%.cpp
-	$(cc) $(cflags) -c $< -o $@ $(include_flags)
+	$(cc) -fopenmp $(cflags) -c $< -o $@ $(include_flags)
 
 clean:
 	rm wigner src/*.o *.png *.csv *.h5
