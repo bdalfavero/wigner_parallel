@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXcd new_field, old_field;
     Eigen::VectorXd population, times;
     Eigen::MatrixXd all_populations;
+	Eigen::VectorXd walltimes;
 
 	num_samples = 0;
     //std::ifstream input_file(argv[1]);
@@ -189,6 +190,8 @@ int main(int argc, char *argv[]) {
     new_field = Eigen::MatrixXcd::Zero(num_sites, num_samples_this_rank);
 
     population = avg_pop(old_field);
+	all_populations = Eigen::MatrixXd::Zero(num_steps, num_sites);
+	walltimes = Eigen::VectorXd::Zero(num_steps);
 
 
     t = 0.;
@@ -199,8 +202,14 @@ int main(int argc, char *argv[]) {
         population = avg_pop(old_field, rank, world_size, true);
         t += dt;
         get_walltime(&end_time);
-        if (rank == 0) print_csv_row(t, population, end_time - start_time);
+        //if (rank == 0) print_csv_row(t, population, end_time - start_time);
+        walltimes(i) = end_time - start_time;
+		all_populations.row(i) = population.transpose();
     }
+
+	/* Write data to the file. */
+	hid_t fspace = H5Screate_simple(2, {num_steps, num_sites}, NULL);
+	H5Dcreate(file, "/population", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     
     MPI_Finalize();
 }
