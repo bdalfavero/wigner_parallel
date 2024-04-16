@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
 
     hid_t file, dset;
     char dset_name[BUFFSIZE];
+    int status;
     int num_sites, num_samples, num_steps;
     double init_population, dt, t, end_time, start_time;
     Eigen::MatrixXcd new_field, old_field;
@@ -50,11 +51,49 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd all_populations;
 
 	num_samples = 0;
-    std::ifstream input_file(argv[1]);
+    //std::ifstream input_file(argv[1]);
+    file = H5Fopen(argv[1], H5F_ACC_RDWR, H5P_DEFAULT);
+    if (file == H5I_INVALID_HID) {
+        std::cerr << "Error opening file.\n";
+        return -1;
+    }
     if (rank == 0) {
-        input_file >> num_sites;
-        input_file >> num_samples;
-        input_file >> init_population;
+        //input_file >> num_sites;
+        strncpy(dset_name, "num_points", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_sites);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
+        //input_file >> num_samples;
+        strncpy(dset_name, "num_samples", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_samples);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
+        //input_file >> init_population;
+        strncpy(dset_name, "init_population", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &init_population);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
     }
     MPI_Bcast(&num_sites, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&num_samples, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -64,8 +103,30 @@ int main(int argc, char *argv[]) {
     bose_system_t bose;
     bose.n_sites = num_sites;
     if (rank == 0) {
-        input_file >> bose.g;
-        input_file >> bose.t;
+        //input_file >> bose.g;
+        strncpy(dset_name, "bose_model/g", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(bose.g));
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
+        //input_file >> bose.t;
+        strncpy(dset_name, "bose_model/t", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(bose.t));
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
     }
     MPI_Bcast(&bose.g, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&bose.t, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -73,8 +134,30 @@ int main(int argc, char *argv[]) {
     //print_csv_header(num_sites);
     //num_steps = 200;
     if (rank == 0) {
-        input_file >> num_steps;
-        input_file >> dt;
+        //input_file >> num_steps;
+        strncpy(dset_name, "time_steps/num_steps", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_steps);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
+        //input_file >> dt;
+        strncpy(dset_name, "time_steps/dt", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &dt);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
     }
     MPI_Bcast(&num_steps, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&dt, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
