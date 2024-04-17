@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 
 	/* Write data to the file. */
 	hid_t fspace = H5Screate_simple(2, {num_steps, num_sites}, NULL);
-	H5Dcreate(file, "/population", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	dset = (file, "/population", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     
     MPI_Finalize();
 }
