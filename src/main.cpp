@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&num_steps, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&dt, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    if (rank == 0) print_csv_header(num_sites);
+    //if (rank == 0) print_csv_header(num_sites);
 
     /* split the samples between all the rank. 
      * In the case where the number is not evenly divisible,
@@ -208,8 +208,33 @@ int main(int argc, char *argv[]) {
     }
 
 	/* Write data to the file. */
-	hid_t fspace = H5Screate_simple(2, {num_steps, num_sites}, NULL);
-	H5Dcreate(file, "/population", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	hsize_t dims[2] = {num_steps, num_sites};
+	hid_t fspace = H5Screate_simple(2, dims, NULL);
+	dset = H5Dcreate(file, "/population", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (dset == H5I_INVALID_HID) {
+		std::cerr << "Error opening dataset /population.\n";
+		return -1;
+	}
+	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, all_populations.data());
+	if (status < 0) {
+		std::cerr << "Error writing to dataset population\n";
+		return -1;
+	}
+
+	hsize_t dim = (hsize_t)num_steps;
+	fspace = H5Screate_simple(1, &dim, NULL);
+	dset = H5Dcreate(file, "/walltimes", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (dset == H5I_INVALID_HID) {
+		std::cerr << "Error opening dataset /walltimes.\n";
+		return -1;
+	}
+	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, walltimes.data());
+	if (status < 0) {
+		std::cerr << "Error writing to dataset walltimes\n";
+		return -1;
+	}
+
+	status = H5Fclose(file);
     
     MPI_Finalize();
 }
