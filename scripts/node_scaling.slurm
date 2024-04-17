@@ -11,4 +11,6 @@
 nnodes=(1 2 4 8 16)
 my_nnodes=${nnodes[$SLURM_ARRAY_TASK_ID]}
 exec_path=/mnt/home/dalfaver/wigner_parallel
-mpiexec -n ${my_nnodes} ${exec_path}/wigner params.dat > output_${my_nnodes}.csv
+my_file=out_${my_nnodes}.h5
+cp out.h5 ${my_file}
+mpiexec -n ${my_nnodes} ${exec_path}/wigner ${my_file}
