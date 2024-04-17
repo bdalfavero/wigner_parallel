@@ -1,5 +1,6 @@
 wigner
 *.h5
+!data/*.h5
 *.csv
 !data/*.csv
 *.dat
