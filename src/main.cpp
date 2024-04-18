@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
     int status;
     int num_sites, num_samples, num_steps;
     double init_population, dt, t, end_time, start_time;
+	int use_simd;
     Eigen::MatrixXcd new_field, old_field;
     Eigen::VectorXd population, times;
     Eigen::MatrixXd all_populations;
@@ -95,10 +96,22 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error reading dataset" << dset_name << ".\n";
             return -1;
         }
+        strncpy(dset_name, "use_simd", BUFFSIZE);
+        dset = H5Dopen2(file, dset_name, H5P_DEFAULT);
+        if (dset == H5I_INVALID_HID) {
+            std::cerr << "Error opening dataset" << dset_name << ".\n";
+            return -1;
+        }
+        status = H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &use_simd);
+        if (status < 0) {
+            std::cerr << "Error reading dataset" << dset_name << ".\n";
+            return -1;
+        }
     }
     MPI_Bcast(&num_sites, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&num_samples, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&init_population, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&use_simd, 1, MPI_INT, 0, MPI_COMM_WORLD);
     //std::cerr << "rank " << rank << " has sitee " << num_sites << " and samples " << num_samples << std::endl;
 
     bose_system_t bose;
@@ -197,7 +210,7 @@ int main(int argc, char *argv[]) {
     t = 0.;
     for (int i = 0; i < num_steps; i++) {
         get_walltime(&start_time);
-        step_forward(old_field, new_field, bose, dt);
+        step_forward(old_field, new_field, bose, dt, (bool)use_simd);
         old_field = new_field;
         population = avg_pop(old_field, rank, world_size, true);
         t += dt;
