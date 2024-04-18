@@ -31,4 +31,4 @@ init_pop_dset = f.create_dataset("init_population", (1,), dtype="double")
 init_pop_dset[0] = 5.0
 
 simd_dset = f.create_dataset("use_simd", (1,), dtype="int")
-simd_dset[0] = 1
+simd_dset[0] = 0
