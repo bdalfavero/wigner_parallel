@@ -67,9 +67,13 @@ Eigen::VectorXd avg_pop(Eigen::MatrixXcd field, int rank, int world_size, bool p
         nsamples = field.cols();
         population = Eigen::VectorXd::Zero(nsites);
 
-        for (int i = 0; i < nsites; i++) {
-            population(i) = field.row(i).squaredNorm() / (double)nsamples;
-        }
+		#pragma omp parallel
+		{
+			#pragma omp for
+			for (int i = 0; i < nsites; i++) {
+				population(i) = field.row(i).squaredNorm() / (double)nsamples;
+			}
+		}
         return population;
     } else {
         //std::cerr << "In averaging function." << std::endl;
