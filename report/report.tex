@@ -1,0 +1,108 @@
+\documentclass{article}
+
+\title{The Truncated Wigner method on an HPC cluster}
+\author{Benjamin DalFavero}
+\date{\today}
+
+\usepackage{physics}
+
+\newcommand{\Schroedinger}{Schr{\"o}dinger}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction} \label{introduction}
+
+Systems of many interacting, bosonic particles are of great interest in the areas of condensed matter physics, 
+chemsitry, quantum sensing, and quantum analogues. At thermal equilibrium, these systems can be treated well by 
+Markov chain Monte Carlo (MCMC) methods. For systems out of equilibrium, the path integral Monte Carlo approach 
+is infeasible due to the famous ``Monte Carlo sign problem,'' where fast fluctuations in the integrand require
+an enormous number of samples for convergence. Lagrangian approaches using the path integral must thus be abandoned
+in favor of Hamiltonian approaches in the \Schroedinger{} or Heisenberg pictures. With these methods, the most 
+fundamental challenge is the exponential scaling of the Hilbert space with the size of the system.
+
+This paper outlines the implementation of the MCMC methods for Truncated Wigner approximation on 
+an HPC cluster, with analysis of how performance is improved by using various constructs from distributed
+computing. Section \ref{theory-methods} outlines the structure of the theory, as well as MCMC methods for 
+these problems. Section \ref{parallel} details the technical aspects of performing the MCMC calculations 
+on the HPC system. Section \ref{results} presents an analysis of the speedup provided by these parallel computing 
+techniques. Section \ref{conclusion} concludes the paper, presenting an overview of the work and areas of future 
+improvement.
+
+\section{Theory and numerical methods} \label{theory-methods}
+
+The methods in this paper use the phase-space formulation to estimate the seminclassical dynamics 
+of the Bose-Hubbard model.
+
+\subsection{The Bose-Hubbard model}
+
+The Bose-Hubbard model (BHM) is a foundational model in condensed matter and atomic physics. 
+The model consists of an \(n\)-dimensional lattice with \(M\) sites. The lattice sites 
+are occupied by \(N\) interacting bosons. A configuration of this system is described by a Fock state
+\begin{equation}
+    \label{equ:fock-state}
+    \ket{n_1 n_2 \ldots n_M}
+\end{equation}
+where each \(n_i\) is the number of bosons at lattice site \(i\). The state of the quantum system is a 
+superposition of these Fock states:
+\begin{equation}
+    \label{equ:wave-function}
+    \ket{\Psi} = \sum_{n_1, \ldots, n_M} c_{n_1 \ldots n_M} \ket{n_1 n_2 \ldots n_M},
+\end{equation}
+where the coefficients \(c_{n_1 \ldots n_M}\) are complex numbers. 
+
+Linear maps on quantum states of the form in Eq. \ref{equ:wave-function} are generating 
+using creation and annihilation operators
+\begin{equation}
+    b_i^\dagger \ket{n_1 n_2 \ldots n_i \ldots n_M} = \sqrt{n_i + 1} \ket{n_1 n_2 \ldots (n_i + 1) \ldots n_M}
+\end{equation}
+\begin{equation}
+    b_i \ket{n_1 n_2 \ldots n_i \ldots n_M} = \sqrt{n_i} \ket{n_1 n_2 \ldots (n_i - 1) \ldots n_M}
+\end{equation}
+which map Fock states to other Fock states. The eigenstates of the annihilation operator 
+are the coherent states, which have the relation
+\begin{equation}
+    \label{equ:coherent-state}
+    b_i \ket{\beta_1 \ldots \beta_i \ldots \beta_M} = \beta_i \ket{\beta_1 \ldots \beta_i \ldots \beta_M}
+\end{equation}
+where the variables \(\beta_i\) are complex numbers. 
+
+The dynamics of the system are governed by the \Schroedinger{} equation 
+\begin{equation}
+    \label{equ:schroedinger}
+    i \hbar \frac{\partial}{\partial t} \ket{\Psi(t)} = \hat{H}_{BH} \ket{\Psi(t)},
+\end{equation}
+where \(\hbar\) is the reduced Planck constant, \(\ket{\Psi}(t)\) is the state of the system at time \(t\),
+and \(\hat{H}_{BH}\) is the Bose-Hubbard Hamiltonian:
+\begin{equation}
+    \hat{H}_{BH} = -t \sum_{i,j \in NN(i)} (b_i^\dagger b_j + \textrm{h.c.}) + g \sum_i b_i^\dagger b_i^\dagger b_i b_i,
+\end{equation}
+where \(i,j\) denote lattice sites, \(NN(i)\) is the set of nearest neighbors for lattice site \(i\), \(t\) is the hopping
+energy which determines the kinetic energy of a boson hopping from site \(i\) to site \(j\), and \(g\) is the strength 
+of on-site repulsive interactions.
+
+\subsection{The Truncated Wigner approximation}
+
+The Trucated Wigner approximation (TWA) is a semiclassical approximation of the dynamics of a bosonic system 
+given by the \Schroedinger equation. The TWA relies of Wigner's phase space formalism of quantum mechanics to 
+build approximations. 
+
+In the phase space formulation, the quantum state in Eq. \ref{equ:wave-function} is instead represented by the 
+Wigner function:
+\begin{equation}
+    \label{equ:wigner-function}
+    W(\psi_i, \psi^\ast_i) = \int d\eta d\eta^\ast \bra{\psi - \eta/2} \hat{\rho} \ket{\psi + \eta/2} 
+    \exp(-|\psi|^2 - \frac{1}{4}|\eta|^2) \exp(\frac{1}{2} \eta^\ast \psi - \eta \psi^\ast)
+\end{equation}
+where 
+
+\subsection{Solution by Monte Carlo methods}
+
+\section{Parallel implementation} \label{parallel}
+
+\section{Results} \label{results}
+
+\section{Conclusion} \label{conclusion}
+
+\end{document}

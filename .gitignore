@@ -8,3 +8,8 @@ wigner
 *.o
 .DS_Store
 .ipynb_checkpoints
+*.aux
+*.log
+*.pdf
+*.fls
+*.fdb_latexmk
