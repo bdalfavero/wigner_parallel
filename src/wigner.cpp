@@ -67,7 +67,7 @@ void step_forward(Eigen::MatrixXcd old_field, Eigen::MatrixXcd &new_field, bose_
 					new_field(i, j) = old_field(i, j) + std::complex<double>(0., -dt) * rhs; 
 				}
 				for (int i = 0; i < nsites; i++) {
-					//rhs = std::complex<double>(0., 0.);
+					rhs = std::complex<double>(0., 0.);
 					if (i != 0) rhs += std::complex<double>(bose.t, 0.) * old_field(i - 1, j);
 					if (i != nsites - 1) rhs += std::complex<double>(bose.t, 0.) * old_field(i + 1, j);
 					new_field(i, j) = old_field(i, j) + std::complex<double>(0., -dt) * rhs; 
