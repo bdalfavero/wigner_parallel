@@ -9,25 +9,6 @@
 
 #define BUFFSIZE 256
 
-void print_csv_header(int nsites) {
-    std::cout << "t,";
-    for (int i = 0; i < nsites; i++) {
-        std::cout << "p" << i;
-        std::cout << ",";
-    }
-    std::cout << "walltime" << "\n";
-}
-
-void print_csv_row(double t, Eigen::VectorXd population, double walltime) {
-    std::cout << t << ",";
-    for (int i = 0; i < population.size(); i++) {
-        std::cout << population(i);
-        std::cout << ",";
-    }
-    std::cout << walltime;
-    std::cout << std::endl;
-}
-
 int main(int argc, char *argv[]) {
 
     MPI_Init(&argc, &argv);
@@ -45,12 +26,15 @@ int main(int argc, char *argv[]) {
     char dset_name[BUFFSIZE];
     int status;
     int num_sites, num_samples, num_steps;
-    double init_population, dt, t, end_time, start_time;
+    double init_population, dt, t, end_time2, end_time, start_time;
+	double global_start_time, global_end_time;
 	int use_simd;
     Eigen::MatrixXcd new_field, old_field;
     Eigen::VectorXd population, times;
     Eigen::MatrixXd all_populations;
-	Eigen::VectorXd walltimes;
+	Eigen::VectorXd walltimes, step_times, averaging_times;
+
+	get_walltime(&global_start_time);
 
 	num_samples = 0;
     //std::ifstream input_file(argv[1]);
@@ -204,6 +188,8 @@ int main(int argc, char *argv[]) {
 
     population = avg_pop(old_field);
 	all_populations = Eigen::MatrixXd::Zero(num_steps, num_sites);
+	step_times = Eigen::VectorXd::Zero(num_steps);
+	averaging_times = Eigen::VectorXd::Zero(num_steps);
 	walltimes = Eigen::VectorXd::Zero(num_steps);
 
 
@@ -212,11 +198,14 @@ int main(int argc, char *argv[]) {
         get_walltime(&start_time);
         step_forward(old_field, new_field, bose, dt, (bool)use_simd);
         old_field = new_field;
+        get_walltime(&end_time);
         population = avg_pop(old_field, rank, world_size, true);
         t += dt;
-        get_walltime(&end_time);
+        get_walltime(&end_time2);
         //if (rank == 0) print_csv_row(t, population, end_time - start_time);
-        walltimes(i) = end_time - start_time;
+        step_times(i) = end_time - start_time;
+		averaging_times(i) = end_time2 - end_time;
+		walltimes(i) = end_time2 - start_time;
 		all_populations.row(i) = population.transpose();
     }
 
@@ -244,6 +233,47 @@ int main(int argc, char *argv[]) {
 	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, walltimes.data());
 	if (status < 0) {
 		std::cerr << "Error writing to dataset walltimes\n";
+		return -1;
+	}
+
+	dim = (hsize_t)num_steps;
+	fspace = H5Screate_simple(1, &dim, NULL);
+	dset = H5Dcreate(file, "/step_times", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (dset == H5I_INVALID_HID) {
+		std::cerr << "Error opening dataset /step_times.\n";
+		return -1;
+	}
+	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, step_times.data());
+	if (status < 0) {
+		std::cerr << "Error writing to dataset step_timesn";
+		return -1;
+	}
+
+	dim = (hsize_t)num_steps;
+	fspace = H5Screate_simple(1, &dim, NULL);
+	dset = H5Dcreate(file, "/averaging_times", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (dset == H5I_INVALID_HID) {
+		std::cerr << "Error opening dataset /averaging_times.\n";
+		return -1;
+	}
+	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, averaging_times.data());
+	if (status < 0) {
+		std::cerr << "Error writing to dataset averaging_times\n";
+		return -1;
+	}
+
+	get_walltime(&global_end_time);
+	double total_wtime = global_end_time - global_start_time;
+	dim = 1;
+	fspace = H5Screate_simple(1, &dim, NULL);
+	dset = H5Dcreate(file, "/total_walltime", H5T_NATIVE_DOUBLE, fspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (dset == H5I_INVALID_HID) {
+		std::cerr << "Error opening dataset /total_walltime.\n";
+		return -1;
+	}
+	status = H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &total_wtime);
+	if (status < 0) {
+		std::cerr << "Error writing to dataset total_walltime\n";
 		return -1;
 	}
 
