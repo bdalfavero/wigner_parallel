@@ -95,13 +95,35 @@ Wigner function:
     W(\psi_i, \psi^\ast_i) = \int d\eta d\eta^\ast \bra{\psi - \eta/2} \hat{\rho} \ket{\psi + \eta/2} 
     \exp(-|\psi|^2 - \frac{1}{4}|\eta|^2) \exp(\frac{1}{2} \eta^\ast \psi - \eta \psi^\ast)
 \end{equation}
-where 
+where \(\psi\) and \(\eta\) are vectors of complex variables, and \(\rho\) is the density matrix. 
 
 \subsection{Solution by Monte Carlo methods}
 
 \section{Parallel implementation} \label{parallel}
 
+Since this method involves both random sampling and solving systems of ordinary differential equations, it is 
+imperative to parallelize over both types of tasks. 
+There are two convenient ways to divide the workload between nodes such a calculation:
+\begin{enumerate}
+    \item Each node in the cluster is responsible for a certain number of Monte Carlo samples, 
+    and it holds the entire ``wave function'' vector for each sample. After each time step, 
+    the nodes average their populations together. 
+    \item Each node handles a part of the domain, but does the calculation for every sample 
+    on the same node. Each time step, the nodes need to share their boundary points with 
+    each other to enable time-stepping. 
+\end{enumerate}
+In an average calculation, we expect that the number of MCMC samples will vastly outnumber of the number of lattice sites. 
+So, I have chosen the first option.
+
+Secondly, we must decide how the time-stepping and population averaging will be done on the single nodes. 
+
 \section{Results} \label{results}
+
+\subsection{Convergence and verification}
+
+\subsection{Speedup from distributed-memory parallelism}
+
+\subsection{Speedup from shared-memory parallelism}
 
 \section{Conclusion} \label{conclusion}
 
