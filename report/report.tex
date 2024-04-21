@@ -257,9 +257,11 @@ and the on-node and off-node cases overlap. The top two curves represent the sec
 again overlap.  So, there is no significant penalty due to the locality of the cores, and the system size also 
 has little impact on speedup.  The data in Table \ref{tab:node-slopes} show the slopes of the lines in 
 Fig. \ref{fig:node-total-walltime}. Ideally (assuming each batch of samples is done independently), 
-we would expect a speedup of \(T_1/N\), where \(N\) is the number of nodes used. We do not achieve this ideal 
-scaling due to the overhead of gathering data from each of the nodes, averaging them, and sending them back to each 
-of the nodes. 
+we would expect a speedup of \(T_1/N\), where \(N\) is the number of nodes used and \(T_1\) is the time
+for the serial compuation. The values in the table 
+are very close to one, so we achieve nearly-ideal speedup from using multiple nodes. The small deviation 
+is most likely due to the overhead of communcation. This hints at a very small "serial fraction" 
+as discussed in the context of Amdah's law.
 
 \begin{table}
     \centering
@@ -267,10 +269,10 @@ of the nodes.
         \hline
         Case & Locality & Slope \\
         \hline 
-        1 & On-node & -0.297 \\
-        1 & Off-node & -0.289 \\
-        2 & On-node & -0.296 \\
-        2 & Off-node & -0.296 \\
+        1 & On-node & -0.985 \\
+        1 & Off-node & -0.962 \\
+        2 & On-node & -0.982 \\
+        2 & Off-node & -0.983 \\
         \hline 
     \end{tabular}
     \caption{Slopes of lines in Fig. \ref{fig:node-total-walltime}.}
@@ -358,9 +360,8 @@ multithreading by allowing multiple samples to be propagated at once, along with
 implement SIMD computation of kernels.
 
 In section \ref{results}, we show the speedup afforded by these parallel computing mechanisms. 
-The use of several nodes shows a power-law decrease in total runtime, but with a non-ideal 
-rate of decrease. I speculate that this may be due to the high overhead of averaging samples across nodes, 
-but cannot verify this without learning more elaborate profiling tools. A more modest speedup is observed 
+In the case of distributed memory parallelism, we see a near-ideal speedup. 
+A more modest speedup is observed 
 from the use of multithreading, both with a conventional loop and SIMD techniques. Again, the overhead of 
 the parallelism (in this case spawning and joining threads) seems to reduce the advantage of this technique
 from its theoretical speedup. 
