@@ -97,8 +97,28 @@ Wigner function:
     \exp(-|\psi|^2 - \frac{1}{4}|\eta|^2) \exp(\frac{1}{2} \eta^\ast \psi - \eta \psi^\ast)
 \end{equation}
 where \(\psi\) and \(\eta\) are vectors of complex variables, and \(\rho\) is the density matrix. 
+In the Heisenberg picture, with the phase-space transformation applied, 
+the equation of motion for the Wigner function is 
+\begin{equation}
+    \label{equ:heisenberg-equation}
+    i \hbar \frac{\partial \psi_i}{\partial t} = 
+    -t\sum_{j \in NN(i)} \psi_j + g \psi_i + g |\psi_i|^2 \psi_i ,
+\end{equation}
+where \(\psi_i\) is the complex variable representing the annihilation operator at site \(i\).
+The expectation value of the population at lattice site \(i\) is given by 
+\begin{equation}
+    \label{equ:wigner-population}
+    n_i(t) = \int \prod_j d\psi_j d\psi_j^\ast W(\psi(0), \psi^\ast(0)) |\psi_i (t)|^2.
+\end{equation}
 
 \subsection{Solution by Monte Carlo methods}
+
+The integral in Eqn. \ref{equ:wigner-population} can be evaluated by Monte Carlo sampling. 
+Because \(W\) acts like a probability distribution, when it is positive everywhere, we can sample 
+the variables \(\psi_1, \ldots, \psi_N\) using importance sampling. If the inital state is a product of 
+coherent states, each \(\psi_i\) is samples from a complex, Gaussian distribution. These samples are 
+propagated forward in time by solving Eqn. \ref{equ:heisenberg-equation}, and the population is an average of 
+\(|\psi_i^{(k)}|^2\), where \(\psi_i^{(k)}\) is the amplitude at site \(i\) in the \(k^\textrm{th}\) sample.
 
 \section{Parallel implementation} \label{parallel}
 
@@ -114,9 +134,49 @@ There are two convenient ways to divide the workload between nodes such a calcul
     each other to enable time-stepping. 
 \end{enumerate}
 In an average calculation, we expect that the number of MCMC samples will vastly outnumber of the number of lattice sites. 
-So, I have chosen the first option.
+So, I have chosen the first option. Additonally, the first strategy should be better from a memory-use perspective. 
+If we were to split up the domain, at each timestep we would need to transer two sets of boundary points between 
+pairs of nodes. For each pair of nodes, if \(N_S\) samples are taken, we must transfer \(2 N_S\) complex numbers. 
+On the one-dimensional lattice, each block of lattice sites has two neighbors, so we must transfer  
+\(4 N_S M/ N_N\) complex numbers, where \(M\) is the number of lattice sites, and \(N_N\) is the number of nodes.
+A total of \(2 N_N\) messages must be sent. With the strategy of splitting up samples, we need only transfer 
+\(N_N M\) complex numbers, since we are averaging over the average of samples for each node. Since we expect 
+\(N_S >> N_M\), the first strategy is a winner on small domains.
+
+On each node, the samples are represented by a matrix 
+\begin{equation}
+    \Psi_{ij} = 
+    \begin{bmatrix}
+        \psi_1^1 & \ldots & \psi_1^{N_s} \\
+        \vdots & \ddots & \vdots \\
+        \psi_M^1 & \ldots & \psi_M^{N_s} \\
+    \end{bmatrix}
+    ,
+\end{equation}
+where \(\psi_i^k\) is the variable for lattice site \(i\) in the \(k^\textrm{th}\) sample. Each row of this matrix 
+represents a lattice site, and each column a specific sample drawn from the Wigner function. At each step of the 
+calculation, we propagate each column forward following its Heisenberg equation of motion, 
+and then take the average popualtion in each row.
 
 Secondly, we must decide how the time-stepping and population averaging will be done on the single nodes. 
+We generally expect that the number of samples taken will be much greater than the number of lattice sites.
+Even when using multiple nodes, each node may still handle several hunderds or thousands of samples, 
+while we expect only hundreds of lattice sites. As such, I have chosen to assign each thread to a number of samples as
+the main method of multithreading. As for iteration over the lattice sites, I implement two methods for time steps:
+\begin{enumerate}
+    \item A single loop is performed over the lattice sites.
+    \item The potential term \(g |\psi_i|^2 \psi_i\) is added to the new field using OpenMP's SIMD instructions, 
+    and then the diffusion term \(-t \sum_{j \in NN(i)} \psi_j + g \psi_i\) is handled by a conventional loop.
+\end{enumerate}
+I anticipate that parallelizing both the iteration over samples and the iteration over lattice sites may be inefficient, 
+since that would require spawning a very large number of threads. However, the SIMD method may be able to speed up
+time-stepping without using additional threads. During the averaging portion of the calculation, I compute a squared norm of 
+the \(i^\textrm{th}\) row of the sample matrix, which is equivalent to an average when divided by the 
+total number of samples. The loop over the lattice sites is easily parallelized.
+
+Memory management is a minimal concern for multithreading. We store two copies of the field, one ``new'' and one ``old.''
+At each time step, we update the new field using the old. No extra memory is allocated. Since we only read from the 
+old field and write to the new one, no race condition exists. 
 
 \section{Results} \label{results}
 
@@ -136,11 +196,40 @@ for a large number of samples is taken as the exact solution. The results of thi
 Fitting a line on a log-log scale, we see that the slope is about 0.47. This is a good match for the theoretical 
 convergence rate, which states that the errors scale as \(O(1/\sqrt{N})\), where \(N\) is the number of samples. 
 
+We verify next that the output of the code does not change when the number of threads or nodes is changed. 
+Figs. \ref{fig:verification-thread-simd-comparison} through \ref{fig:verification-thread-comparison} show the distance
+between solutions as given by their norm divided by the number of data points. We can see good agreement, given the 
+number of samples is in the thousands. We can conclude that the SIMD and non-SIMD implementations produce the same 
+solutions. Fig. \ref{fig:verification-nodes-comparison} shows a similar comparison for the number of nodes, 
+with a single thread. We now know that the code converges to a final solution, and that this final solution is
+indepedent of the number of threads or nodes.
+
 \begin{figure}
     \centering
     \includegraphics[width=0.75\textwidth]{../plots/verification_thread_simd_case1.png}
+    \caption{Distance between SIMD and non-SIMD solutions for various numbers of threads.}
+    \label{fig:verification-thread-simd-comparison}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/verification_simd_case1.png}
     \caption{Distance between solutions with different numbers of threads for the SIMD case.}
-    \label{fig:verification-thread-simd-case1}
+    \label{fig:verification-simd-comparison}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/verification_threads_case1.png}
+    \caption{Distance between solutions with different numbers of threads for the non-SIMD case.}
+    \label{fig:verification-thread-comparison}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/verification_nodes_case1.png}
+    \caption{Distance between solutions with different numbers of nodes.}
+    \label{fig:verification-nodes-comparison}
 \end{figure}
 
 \subsection{Speedup from distributed-memory parallelism}
@@ -165,10 +254,89 @@ total walltime for the simulation vs. the number of cores. In these runs, no mul
 all speedup is due to dividing the samples among multiple nodes. In half of the runs, all cores are on different nodes,
 and for the other half, all cores are on separate nodes. The bottom two curves represent the first problem instance,
 and the on-node and off-node cases overlap. The top two curves represent the second problem instance, where they 
-again overlap.
+again overlap.  So, there is no significant penalty due to the locality of the cores, and the system size also 
+has little impact on speedup.  The data in Table \ref{tab:node-slopes} show the slopes of the lines in 
+Fig. \ref{fig:node-total-walltime}. Ideally (assuming each batch of samples is done independently), 
+we would expect a speedup of \(T_1/N\), where \(N\) is the number of nodes used. We do not achieve this ideal 
+scaling due to the overhead of gathering data from each of the nodes, averaging them, and sending them back to each 
+of the nodes. 
+
+\begin{table}
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        Case & Locality & Slope \\
+        \hline 
+        1 & On-node & -0.297 \\
+        1 & Off-node & -0.289 \\
+        2 & On-node & -0.296 \\
+        2 & Off-node & -0.296 \\
+        \hline 
+    \end{tabular}
+    \caption{Slopes of lines in Fig. \ref{fig:node-total-walltime}.}
+    \label{tab:node-slopes}
+\end{table}
+
+Next we examine the time spent on time-stepping and averaging separately. Average times for these operations are shown in 
+Fig. \ref{fig:node-average-vs-step}. Time-sepping is seen to take more time, which is sensible, because 
+more explicit iteration is needed for this operation. Averaging can largely be done by computing a vector 
+norm of each row in the state vector matrix, and the library implementation is most likely well-optimized. 
+
+Because we do not multithread in these experiments, we expect the time-stepping and averaging times to 
+increase linearly with the size of lattice. In Fig. \ref{fig:node-average-vs-step}, we see the order of magnitude
+difference in lattice sizes causes an order-of-magnitude (in base 10) difference in the times, which 
+supports this scaling.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/node_step_averaging.png}
+    \caption{Average time for averaging or time-stepping vs. the number of nodes.}
+    \label{fig:node-average-vs-step}
+\end{figure}
 
 \subsection{Speedup from shared-memory parallelism}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/thread_scaling_steps.png}
+    \caption{Average time for time stepping and averaging vs. number of threads for SIMD and 
+    non-SIMD methods}
+    \label{fig:threads-avg-step-time}
+\end{figure}
+
+The previous subsection shows the speedup afforded by a pure multiprocessing setup, and this section shows the speedup 
+from using multithreading. Fig. \ref{fig:threads-avg-step-time} shows the average wallclock time to do a time 
+step and averaging as it scales with the number of threads. In Case 1, the non-SIMD strategy performs marginally better 
+for all thread counts. In Case 2, where the lattice is much larger, SIMD performs better when there there are 4 or 
+more threads. Since the SIMD strategy requires two loops, larger lattices benefit more because it takes extra time
+to set up threads for the two loops, which must be offset by the speedup from the SIMD operations. That being said,
+the speedup is still quite small.  
+
+A fundamental limitation on these techniques is the attempt to use multithreading to accelerate not only time-stepping,
+but also iteration over the independent samples. With either strategy, going to 16 threads only cuts the time per step 
+down by half. While the code is free of race conditions that would slow things down, clearly there is a high overhead 
+to spawning joining these threads. Further work may be necessary in order to improve this speedup.
+
 \section{Conclusion} \label{conclusion}
+
+In this work, we present an implementation of the Trucated Wigner approximation (TWA) on an HPC cluster.
+Due to the independent nature of the samples, this method is naturally implemented on a cluster by 
+distributing samples across different processors. The implementation of time-stepping also benefits from 
+multithreading by allowing multiple samples to be propagated at once, along with the ability to 
+implement SIMD computation of kernels.
+
+In section \ref{results}, we show the speedup afforded by these parallel computing mechanisms. 
+The use of several nodes shows a power-law decrease in total runtime, but with a non-ideal 
+rate of decrease. I speculate that this may be due to the high overhead of averaging samples across nodes, 
+but cannot verify this without learning more elaborate profiling tools. A more modest speedup is observed 
+from the use of multithreading, both with a conventional loop and SIMD techniques. Again, the overhead of 
+the parallelism (in this case spawning and joining threads) seems to reduce the advantage of this technique
+from its theoretical speedup. 
+
+The method of splitting the domain of the calculation between nodes was not implemented for this paper. 
+In one dimension, we expect a fairly small number of samples with respect to the number of samples, 
+so parallelizing over samples is likely more effective. However, in two or more dimensions, domains grow
+by higher-degree polynomials. In this case, we might benefit from splitting the domain, as the number of 
+samples may become competitive with the number domain points.
 
 \end{document}
