@@ -350,6 +350,31 @@ to spawning joining these threads. Further work may be necessary in order to imp
     \label{fig:threads-averaging-vs-stepping}
 \end{figure}
 
+\subsection{Scaling with number of samples and lattice sites}
+
+Both time-stepping updates and averaging have a time complexity that grow linearly with the number of samples and 
+the size of system. When time-stepping, we need only update the field point-by-point, and when averaging, we simply 
+sum the columns. We would like to verify this using timings from the running program. Figs. \ref{fig:samples-scaling} 
+and \ref{fig:domain-scaling} demonstrate this for a fix number of nodes and threads. There is an unexepected dip in
+the walltime curve in Fig. \ref{fig_samples-scaling}. This may be due to the local samples matrix having the right 
+dimension to fit into a different level of cache, though the true cause remains unknown. This linear scaling 
+matches very well with the distributed memory speedup, where we we see \(T_n \approx T_1/ N\). If we double the number
+of samples in a calculation, we know that we can double the number of nodes and get the same runtime. 
+However, due to the poor speedup from multithreading, the same is not true of doubling the domain. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/sample_scaling.png}
+    \caption{Total walltime vs. the number of samples for 16 nodes and 4 threads per node.}
+    \label{fig:samples-scaling}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/domain_scaling.png}
+    \caption{Total walltime vs. the number of domain points for 16 nodes and 4 threads per node.}
+    \label{fig:domain-scaling}
+\end{figure}
 
 \section{Conclusion} \label{conclusion}
 
