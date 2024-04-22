@@ -257,9 +257,11 @@ and the on-node and off-node cases overlap. The top two curves represent the sec
 again overlap.  So, there is no significant penalty due to the locality of the cores, and the system size also 
 has little impact on speedup.  The data in Table \ref{tab:node-slopes} show the slopes of the lines in 
 Fig. \ref{fig:node-total-walltime}. Ideally (assuming each batch of samples is done independently), 
-we would expect a speedup of \(T_1/N\), where \(N\) is the number of nodes used. We do not achieve this ideal 
-scaling due to the overhead of gathering data from each of the nodes, averaging them, and sending them back to each 
-of the nodes. 
+we would expect a speedup of \(T_1/N\), where \(N\) is the number of nodes used and \(T_1\) is the time
+for the serial compuation. The values in the table 
+are very close to one, so we achieve nearly-ideal speedup from using multiple nodes. The small deviation 
+is most likely due to the overhead of communcation. This hints at a very small "serial fraction" 
+as discussed in the context of Amdah's law.
 
 \begin{table}
     \centering
@@ -267,10 +269,10 @@ of the nodes.
         \hline
         Case & Locality & Slope \\
         \hline 
-        1 & On-node & -0.297 \\
-        1 & Off-node & -0.289 \\
-        2 & On-node & -0.296 \\
-        2 & Off-node & -0.296 \\
+        1 & On-node & -0.985 \\
+        1 & Off-node & -0.962 \\
+        2 & On-node & -0.982 \\
+        2 & Off-node & -0.983 \\
         \hline 
     \end{tabular}
     \caption{Slopes of lines in Fig. \ref{fig:node-total-walltime}.}
@@ -281,6 +283,7 @@ Next we examine the time spent on time-stepping and averaging separately. Averag
 Fig. \ref{fig:node-average-vs-step}. Time-sepping is seen to take more time, which is sensible, because 
 more explicit iteration is needed for this operation. Averaging can largely be done by computing a vector 
 norm of each row in the state vector matrix, and the library implementation is most likely well-optimized. 
+The averaging time across multiple nodes could be improved by direct memory access techniques.
 
 Because we do not multithread in these experiments, we expect the time-stepping and averaging times to 
 increase linearly with the size of lattice. In Fig. \ref{fig:node-average-vs-step}, we see the order of magnitude
@@ -306,16 +309,47 @@ supports this scaling.
 
 The previous subsection shows the speedup afforded by a pure multiprocessing setup, and this section shows the speedup 
 from using multithreading. Fig. \ref{fig:threads-avg-step-time} shows the average wallclock time to do a time 
-step and averaging as it scales with the number of threads. In Case 1, the non-SIMD strategy performs marginally better 
+step and averaging as it scales with the number of threads.
+Fig. \ref{fig:threads-total-walltime} shows the total walltime for two simulation cases versus the number of threads used.
+The scaling is very similar to that presented in Fig. \ref{fig:threads-avg-step-time}.
+ In Case 1, the non-SIMD strategy performs marginally better 
 for all thread counts. In Case 2, where the lattice is much larger, SIMD performs better when there there are 4 or 
 more threads. Since the SIMD strategy requires two loops, larger lattices benefit more because it takes extra time
 to set up threads for the two loops, which must be offset by the speedup from the SIMD operations. That being said,
 the speedup is still quite small.  
 
+Fig. \ref{fig:threads-averaging-vs-stepping} shows the difference between the time spent on time-stepping and 
+that spent on averaging. It can readily be compared with the results in Fig. \ref{fig:node-average-vs-step}, which 
+shows an equivalent study that varies the number of nodes. Unlike varying the number of nodes, adding more threads 
+does not seems to make averaging more efficient. This is sensible, because in the averagin process, only 
+the loop over the individual lattice sites can be parallelized, which is limited by the small number of lattice sites, 
+as compared with the cost of spawning the threads. When adding more nodes, on the other hand, we can parallelize over
+the samples with little overhead, thus making the operation get faster with the number of nodes. While one could 
+try to achieve a similar effect with multithreading, this may be inefficient because of the need to avoid race 
+conditions when summing over the large array. Furthermore, the time spent on propagatin the samples is much larger
+than that spent on averaging, so improvements need to be concentrated there. This behavior is consistent across
+studies where the number of nodes and the number of threads are varied.
+
 A fundamental limitation on these techniques is the attempt to use multithreading to accelerate not only time-stepping,
 but also iteration over the independent samples. With either strategy, going to 16 threads only cuts the time per step 
 down by half. While the code is free of race conditions that would slow things down, clearly there is a high overhead 
 to spawning joining these threads. Further work may be necessary in order to improve this speedup.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/threads_total_walltime.png}
+    \caption{Total walltime for vs. number of threads for SIMD and non-SIMD methods}
+    \label{fig:threads-total-walltime}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{../plots/thread_averaging_vs_stepping.png}
+    \caption{Average time spend on each time step or averaging for SIMD and non-SIMD methods.}
+    \label{fig:threads-averaging-vs-stepping}
+\end{figure}
+
 
 \section{Conclusion} \label{conclusion}
 
@@ -326,9 +360,8 @@ multithreading by allowing multiple samples to be propagated at once, along with
 implement SIMD computation of kernels.
 
 In section \ref{results}, we show the speedup afforded by these parallel computing mechanisms. 
-The use of several nodes shows a power-law decrease in total runtime, but with a non-ideal 
-rate of decrease. I speculate that this may be due to the high overhead of averaging samples across nodes, 
-but cannot verify this without learning more elaborate profiling tools. A more modest speedup is observed 
+In the case of distributed memory parallelism, we see a near-ideal speedup. 
+A more modest speedup is observed 
 from the use of multithreading, both with a conventional loop and SIMD techniques. Again, the overhead of 
 the parallelism (in this case spawning and joining threads) seems to reduce the advantage of this technique
 from its theoretical speedup. 
@@ -338,5 +371,17 @@ In one dimension, we expect a fairly small number of samples with respect to the
 so parallelizing over samples is likely more effective. However, in two or more dimensions, domains grow
 by higher-degree polynomials. In this case, we might benefit from splitting the domain, as the number of 
 samples may become competitive with the number domain points.
+
+A bulk of the total walltime is spent on propagating samples, rather than averaging the population. See 
+Figs. \ref{fig:threads-averaging-vs-stepping} and \ref{fig:node-average-vs-step}. Improvements will need 
+to be concentrated there. The previously-discussed strategy of parallelizing over the domain may be helpful.
+Another way to improve this may be to use co-processor such as a GPU to propagate the fields forward. 
+A GPU may allow us to more efficiently implement SIMD kernel and multithreaded iteration over the samples.
+However, this approach has a major disadvantage in terms of memory usage and data movement. 
+After taking a time step, which may be very efficient on the GPU, we will need to move the new data
+into host RAM in order to average across the nodes. This may overwhelm any speedup from the GPU, 
+due to the low bandwidth of the processor when copying memory. This can be somewhat mitigated by 
+averaging the local samples on the GPU, then moving that averagin into host RAM to average across nodes. 
+Futher study of this issue would be needed.
 
 \end{document}
